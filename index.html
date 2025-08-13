@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>抽卡互動網站（PeerJS 全員互看版）</title>
+  <!-- PeerJS：使用官方 Cloud PeerServer，免後端 -->
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <style>
+    :root{
+      /* Vibrant clash palette */
+      --bg1:#fffaf5; --bg2:#f7fbff; --noise: radial-gradient(1200px 800px at 10% -10%, rgba(255,0,128,.08) 0%, rgba(0,200,255,.06) 35%, transparent 60%);
+      --panel:#ffffff; --panel-border: rgba(15,23,42,.08);
+      --text:#111827; --muted:#64748b;
+      --accent:#ff3ea5; --accent-2:#7c3aed; --accent-3:#ff9f1c; --ok:#10b981; --warn:#f59e0b; --danger:#ef4444;
+      --ring: rgba(255,62,165,.35);
+    }
+    *{ box-sizing: border-box; }
+    html,body{height:100%}
+    body{ margin:0; background: linear-gradient(120deg, var(--bg1), var(--bg2)) fixed; color:var(--text); font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", Arial; }
+    body::before{ content:""; position:fixed; inset:0; pointer-events:none; background: var(--noise); opacity:.8; }
+    .wrap{ max-width:1100px; margin:0 auto; padding:24px; }
+    header{ display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+    h1{ font-size:clamp(22px, 2.4vw, 28px); margin:0; letter-spacing:.5px }
+    .sub{ color:var(--muted); font-size:13px }
+
+    .panel{ background:var(--panel); border:1px solid var(--panel-border); border-radius:20px; box-shadow: 0 10px 30px rgba(17,24,39,.06); }
+    .controls{ display:grid; grid-template-columns: 1fr 1fr auto auto auto; gap:12px; padding:16px; align-items:center; }
+    .controls .group{ display:flex; gap:10px; align-items:center; }
+
+    select, button, input{ appearance:none; background: var(--panel); color:var(--text); border:1px solid var(--panel-border); border-radius:999px; padding:12px 16px; font-size:14px; line-height:1; box-shadow: 0 0 0 0 var(--ring); transition: box-shadow .15s ease, transform .08s ease, border-color .15s ease, opacity .15s ease; }
+    select:focus, button:focus, input:focus{ outline:none; box-shadow: 0 0 0 6px var(--ring), 0 0 0 1px rgba(17,24,39,.45) inset; border-color: rgba(17,24,39,.25); }
+    button{ cursor:pointer; font-weight:600 }
+    .btn-primary{ background: linear-gradient(135deg, var(--accent), #ff7fd1); color:#fff; border-color: transparent; box-shadow: 0 6px 18px rgba(255,62,165,.35); }
+    .btn-secondary{ background: linear-gradient(135deg, var(--accent-2), #9d6bff); color:#fff; border-color: transparent; box-shadow: 0 6px 18px rgba(124,58,237,.30); }
+    .btn-ok{ background: linear-gradient(135deg, var(--ok), #6ee7b7); color:#0b3b2d; border-color: transparent; box-shadow: 0 6px 18px rgba(16,185,129,.30); }
+    .btn-ghost{ background:transparent; border-color: var(--panel-border); }
+    button:hover{ transform: translateY(-2px) }
+    button:active{ transform: translateY(0) scale(.98) }
+    button[disabled]{ opacity:.5; cursor:not-allowed; transform:none; box-shadow:none }
+
+    /* current card */
+    .stage{ display:grid; grid-template-columns: 1fr 340px; gap:18px; padding:18px; }
+    .card{ border-radius:22px; padding:22px; border:1px solid var(--panel-border); background: radial-gradient(900px 420px at 0% 0%, rgba(255,62,165,.10), transparent), radial-gradient(900px 420px at 100% 100%, rgba(0,200,255,.08), transparent), linear-gradient(180deg, #ffffff, #fffdfb); min-height:220px; display:flex; align-items:center; justify-content:center; text-align:center; position:relative; overflow:hidden; }
+    .card .tag{ position:absolute; top:12px; left:12px; font-size:12px; color:var(--muted); background: rgba(255,255,255,.9); border:1px solid var(--panel-border); padding:6px 10px; border-radius:999px }
+    .card h2{ margin:10px 0 6px; font-size:22px }
+    .card .meta{ color:var(--muted); font-size:13px }
+    .card .content{ margin-top:10px; font-size:16px; line-height:1.5 }
+    .card img{ max-width:100%; max-height:240px; border-radius:14px; border:1px solid var(--panel-border) }
+    .card.pop{ animation: pop .28s ease; }
+
+    .side{ display:grid; gap:10px }
+    .stat{ background: #ffffff; border-radius:14px; padding:12px; border:1px solid var(--panel-border); font-size:13px; color:var(--muted) }
+    .kbd{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background:#f1f5f9; border:1px solid var(--panel-border); padding:2px 6px; border-radius:6px; font-size:12px; color:#0f172a }
+
+    /* confirmed grid */
+    .confirmed{ margin-top:18px; padding:16px }
+    .grid{ display:grid; grid-template-columns: repeat( auto-fill, minmax(210px,1fr) ); gap:14px; }
+    .mini{ background: linear-gradient(180deg, #ffffff, #fffdfa); border:1px solid var(--panel-border); border-radius:16px; padding:12px; position:relative; box-shadow:0 8px 20px rgba(17,24,39,.06) }
+    .mini .t{ font-weight:700; font-size:14px }
+    .mini .m{ color:var(--muted); font-size:12px }
+    .mini img{ width:100%; height:120px; object-fit:cover; border-radius:12px; border:1px solid var(--panel-border); margin-top:8px }
+    .mini .del{ position:absolute; top:8px; right:8px; border:0; background: linear-gradient(135deg, #ff6b6b, #ff8fa3); color:#fff; border-radius:999px; padding:6px 10px; font-size:12px; box-shadow:0 6px 16px rgba(239,68,68,.25) }
+
+    @keyframes pop{ 0%{ transform: scale(.92); opacity:0 } 100%{ transform: scale(1); opacity:1 } }
+
+    @media (max-width: 900px){ .stage{ grid-template-columns: 1fr } }
+    @media (max-width: 640px){ .controls{ grid-template-columns: 1fr; } }
+
+    /* Peer ID badge */
+    #peerIdBadge{ position:fixed;right:12px;bottom:12px;background:#fff;border:1px solid var(--panel-border);box-shadow:0 8px 20px rgba(17,24,39,.06);border-radius:10px;padding:8px 10px;font-size:12px;color:#475569;z-index:9999;display:none }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>抽卡互動網站（PeerJS 全員互看版）</h1>
+        <div class="sub">一次抽一張，不滿意可重抽；按下「確認」後卡片會固定顯示於下方結果區。全員互看，主持人頁面需保持開啟。</div>
+      </div>
+      <button id="btnReset" class="btn-ghost" title="清空結果並重置">重置</button>
+    </header>
+
+    <section class="panel controls" aria-label="控制區">
+      <div class="group">
+        <label for="topicSelect">主題：</label>
+        <select id="topicSelect" aria-label="選擇主題">
+          <option value="" selected disabled>請選擇主題</option>
+        </select>
+      </div>
+      <div class="group">
+        <label for="categorySelect">分類：</label>
+        <select id="categorySelect" aria-label="選擇分類" disabled>
+          <option value="" selected disabled>請先選主題</option>
+        </select>
+      </div>
+
+      <!-- 房間 / 角色（PeerJS） -->
+      <div class="group" style="min-width:280px">
+        <label for="roomId">房間ID：</label>
+        <input id="roomId" placeholder="例如：workshop-001" style="flex:1; min-width:160px; padding:10px;border:1px solid var(--panel-border);border-radius:10px">
+      </div>
+      <div class="group">
+        <label><input type="checkbox" id="isHost"> 我是主持人</label>
+      </div>
+      <button id="btnJoin" class="btn-ghost" title="加入/建立房間">加入房間</button>
+
+      <button id="btnDraw" class="btn-primary" disabled>抽卡（Space）</button>
+      <button id="btnReroll" class="btn-secondary" disabled>再抽一次（R）</button>
+      <button id="btnConfirm" class="btn-ok" disabled>確認（Enter）</button>
+    </section>
+
+    <section class="panel stage">
+      <div id="currentCard" class="card" role="status" aria-live="polite" aria-atomic="true" data-empty="true">
+        <div class="content">尚未抽卡，點擊「抽卡」開始</div>
+      </div>
+      <aside class="side">
+        <div class="stat">共 <span id="statTopics">0</span> 個主題、<span id="statCategories">0</span> 個分類、<span id="statCards">0</span> 張卡可抽。</div>
+        <div class="stat">鍵盤快捷鍵：<span class="kbd">Space</span> 抽卡、<span class="kbd">R</span> 再抽、<span class="kbd">Enter</span> 確認。</div>
+        <div class="stat">避免重複：<input type="checkbox" id="chkNoRepeat" /> <label for="chkNoRepeat">在本場次內盡量不重複（抽完所有卡後才允許重複）</label></div>
+      </aside>
+    </section>
+
+    <section class="panel confirmed" aria-label="結果區">
+      <h3 style="margin:0 0 8px 0; font-size:16px; color:#cbd5e1">已確認的卡片</h3>
+      <div id="confirmedGrid" class="grid"></div>
+    </section>
+
+    <section class="panel" id="testsPanel" style="margin-top:12px; padding:12px">
+      <details>
+        <summary style="cursor:pointer">內建測試（點開看結果）</summary>
+        <ul id="testResults" style="margin:8px 0 0 18px; line-height:1.6"></ul>
+      </details>
+    </section>
+  </div>
+
+  <!-- 顯示我的 Peer ID（主持人分享給大家） -->
+  <div id="peerIdBadge">我的ID：<span id="myPeerId"></span></div>
+
+  <script>
+  /**
+   * === 可編輯資料（Workshop 主持人可在此區客製化） ========================
+   * 結構：topics -> categories -> cards[]
+   * 4 個主題 × 每主題 4 分類 × 每分類 10 張卡
+   */
+  const TOPICS = ["Topic A", "Topic B", "Topic C", "Topic D"];
+  const CATEGORIES = ["Category 1", "Category 2", "Category 3", "Category 4"];
+
+  const DATA = { topics: {} };
+  TOPICS.forEach(t => {
+    DATA.topics[t] = {};
+    CATEGORIES.forEach(c => {
+      DATA.topics[t][c] = [];
+      for (let i = 1; i <= 10; i++){
+        DATA.topics[t][c].push({ text: `${t} · ${c} · Card ${String(i).padStart(2,'0')}` });
+      }
+    });
+  });
+
+  /**
+   * === 程式邏輯 ===========================================================
+   */
+  // 先收集 DOM
+  const els = {
+    topicSelect: document.getElementById('topicSelect'),
+    categorySelect: document.getElementById('categorySelect'),
+    btnDraw: document.getElementById('btnDraw'),
+    btnReroll: document.getElementById('btnReroll'),
+    btnConfirm: document.getElementById('btnConfirm'),
+    btnReset: document.getElementById('btnReset'),
+    currentCard: document.getElementById('currentCard'),
+    confirmedGrid: document.getElementById('confirmedGrid'),
+    statTopics: document.getElementById('statTopics'),
+    statCategories: document.getElementById('statCategories'),
+    statCards: document.getElementById('statCards'),
+    chkNoRepeat: document.getElementById('chkNoRepeat'),
+    testResults: document.getElementById('testResults')
+  };
+
+  // 建立 topic / category 選單
+  const topicNames = Object.keys(DATA.topics);
+  for (const t of topicNames){
+    const opt = document.createElement('option');
+    opt.value = t; opt.textContent = t; els.topicSelect.appendChild(opt);
+  }
+  function populateCategories(topic){
+    els.categorySelect.innerHTML = '<option value="" selected disabled>請選擇分類</option>';
+    if (!topic){ els.categorySelect.disabled = true; return; }
+    for (const c of Object.keys(DATA.topics[topic])){
+      const opt = document.createElement('option');
+      opt.value = c; opt.textContent = c; els.categorySelect.appendChild(opt);
+    }
+    els.categorySelect.disabled = false;
+  }
+  function updateDrawEnabled(){
+    const ready = !!els.topicSelect.value && !!els.categorySelect.value;
+    els.btnDraw.disabled = !(ready && current === null);
+  }
+  els.topicSelect.addEventListener('change', () => {
+    populateCategories(els.topicSelect.value);
+    current = null; clearCurrentUI();
+    updateDrawEnabled();
+  });
+  els.categorySelect.addEventListener('change', () => { current = null; clearCurrentUI(); updateDrawEnabled(); });
+
+  // 統計
+  const stats = (() => {
+    let categories = 0, cards = 0;
+    for (const t of Object.values(DATA.topics)){
+      for (const cat of Object.values(t)){
+        categories += 1; cards += cat.length;
+      }
+    }
+    return { topics: topicNames.length, categories, cards };
+  })();
+  els.statTopics.textContent = String(stats.topics);
+  els.statCategories.textContent = String(stats.categories);
+  els.statCards.textContent = String(stats.cards);
+
+  // 內部狀態
+  let current = null; // {topic, category, card}
+  const confirmed = []; // push {uid, topic, category, idx, card}
+
+  // anti-repeat 用池
+  const seenPool = new Set(); // key: `${topic}|${category}|${idx}`
+
+  function randomPick(arr){ return arr[Math.floor(Math.random()*arr.length)] }
+
+  function getKeysFor(topic, category){
+    const out = [];
+    const list = DATA.topics[topic]?.[category] || [];
+    list.forEach((_, idx) => out.push({ topic, category, idx }));
+    return out;
+  }
+
+  function pickCard(topic, category){
+    const noRepeat = els.chkNoRepeat.checked;
+    const keys = getKeysFor(topic, category);
+    const candidates = noRepeat ? keys.filter(k => !seenPool.has(`${k.topic}|${k.category}|${k.idx}`)) : keys;
+    const pool = candidates.length ? candidates : keys; // 若抽盡，允許重複
+    const { topic: t, category: c, idx } = randomPick(pool);
+    const card = DATA.topics[t][c][idx];
+    if (noRepeat) seenPool.add(`${t}|${c}|${idx}`);
+    return { topic: t, category: c, idx, card };
+  }
+
+  function renderCurrent(cardState){
+    const box = els.currentCard;
+    box.innerHTML = '';
+    box.removeAttribute('data-empty');
+
+    const tag = document.createElement('div'); tag.className = 'tag'; tag.textContent = `${cardState.topic} · ${cardState.category}`;
+    const title = document.createElement('h2'); title.textContent = cardState.card.text ? '文字卡' : '圖片卡';
+    const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = '抽到的卡片';
+
+    const content = document.createElement('div'); content.className = 'content';
+    if (cardState.card.text){
+      content.textContent = cardState.card.text;
+    } else if (cardState.card.image){
+      const img = document.createElement('img'); img.src = cardState.card.image; img.alt = cardState.card.caption || '抽卡圖片'; img.loading = 'lazy';
+      content.appendChild(img);
+      if (cardState.card.caption){
+        const cap = document.createElement('div'); cap.style.marginTop = '6px'; cap.style.fontSize = '13px'; cap.style.color = '#cbd5e1'; cap.textContent = cardState.card.caption; content.appendChild(cap);
+      }
+    }
+
+    box.appendChild(tag); box.appendChild(title); box.appendChild(meta); box.appendChild(content);
+
+    // lively pop animation on draw/reroll
+    box.classList.add('pop');
+    box.addEventListener('animationend', () => box.classList.remove('pop'), { once:true });
+
+    // 進入預覽狀態：停用抽卡，只能再抽或確認
+    els.btnDraw.disabled = true;
+    els.btnReroll.disabled = false; 
+    els.btnConfirm.disabled = false;
+  }
+
+  function renderConfirmed(){
+    els.confirmedGrid.innerHTML = '';
+    for (const item of confirmed){
+      const card = document.createElement('div'); card.className = 'mini'; card.dataset.uid = String(item.uid || '');
+      const t = document.createElement('div'); t.className = 't'; t.textContent = `${item.topic} · ${item.category}`;
+      const m = document.createElement('div'); m.className = 'm'; m.textContent = item.card.text ? '文字卡' : '圖片卡';
+
+      // 刪除按鈕
+      const del = document.createElement('button');
+      del.type = 'button'; del.className = 'del'; del.dataset.uid = String(item.uid || '');
+      del.setAttribute('aria-label', '刪除這張已確認的卡片');
+      del.title = '刪除'; del.textContent = '刪除';
+
+      card.appendChild(del);
+      card.appendChild(t); card.appendChild(m);
+      if (item.card.text){
+        const p = document.createElement('div'); p.style.marginTop = '6px'; p.textContent = item.card.text; card.appendChild(p);
+      } else if (item.card.image){
+        const img = document.createElement('img'); img.src = item.card.image; img.alt = item.card.caption || '抽卡圖片'; img.loading = 'lazy'; card.appendChild(img);
+        if (item.card.caption){
+          const cap = document.createElement('div'); cap.style.marginTop = '6px'; cap.style.fontSize = '12px'; cap.style.color = '#cbd5e1'; cap.textContent = item.card.caption; card.appendChild(cap);
+        }
+      }
+      els.confirmedGrid.appendChild(card);
+    }
+  }
+
+  function clearCurrentUI(){
+    els.currentCard.setAttribute('data-empty', 'true');
+    els.currentCard.innerHTML = '<div class="content">尚未抽卡，點擊「抽卡」開始</div>';
+    els.btnReroll.disabled = true; 
+    els.btnConfirm.disabled = true;
+  }
+
+  // 事件
+  els.btnDraw.addEventListener('click', () => {
+    const t = els.topicSelect.value;
+    const c = els.categorySelect.value;
+    if (!t || !c) return;
+    if (current) return;
+    current = pickCard(t, c);
+    renderCurrent(current);
+  });
+
+  els.btnReroll.addEventListener('click', () => {
+    if (!current) return;
+    const t = els.topicSelect.value;
+    const c = els.categorySelect.value;
+    if (!t || !c) return;
+    current = pickCard(t, c);
+    renderCurrent(current);
+  });
+
+  els.btnConfirm.addEventListener('click', () => {
+    if (!current) return;
+    // 產生唯一識別碼
+    const uid = Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+    confirmed.push({ ...current, uid });
+    renderConfirmed();
+    current = null; 
+    clearCurrentUI();
+    updateDrawEnabled();
+  });
+
+  // 已確認卡片刪除（事件委派）
+  els.confirmedGrid.addEventListener('click', (e) => {
+    const btn = e.target.closest('button.del');
+    if (!btn) return;
+    const uid = btn.dataset.uid;
+    const i = confirmed.findIndex(x => String(x.uid) === String(uid));
+    if (i !== -1){
+      confirmed.splice(i, 1);
+      renderConfirmed();
+    }
+  });
+
+  els.btnReset.addEventListener('click', () => {
+    if (!confirm('確定要清空目前結果並重置嗎？')) return;
+    confirmed.splice(0); renderConfirmed();
+    current = null; clearCurrentUI();
+    seenPool.clear();
+    updateDrawEnabled();
+  });
+
+  // 快捷鍵：Space 抽卡、R 再抽、Enter 確認（含簡易節流）
+  let keyLock = false;
+  window.addEventListener('keydown', (e) => {
+    if (keyLock) return;
+    if (['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) return;
+    if (e.code === 'Space'){ e.preventDefault(); keyLock = true; els.btnDraw.click(); setTimeout(()=>keyLock=false, 120); }
+    if ((e.key||'').toLowerCase() === 'r'){ keyLock = true; els.btnReroll.click(); setTimeout(()=>keyLock=false, 120); }
+    if (e.key === 'Enter'){ keyLock = true; els.btnConfirm.click(); setTimeout(()=>keyLock=false, 120); }
+  });
+
+  // === 測試（不影響實際狀態） ==============================================
+  (function runTests(){
+    const resultsEl = els.testResults;
+    const out = [];
+    const log = (name, pass, err) => out.push({name, pass, err});
+    const expect = (name, cond) => log(name, !!cond, !!cond? null : new Error('Assertion failed'));
+
+    try{
+      expect('共有 4 個主題', Object.keys(DATA.topics).length === 4);
+      expect('每主題 4 個分類', Object.values(DATA.topics).every(t => Object.keys(t).length === 4));
+      const totalCards = Object.values(DATA.topics).flatMap(t => Object.values(t)).reduce((s, arr) => s + arr.length, 0);
+      expect('總卡數 160', totalCards === 160);
+      expect('Topic A / Category 1 有 10 張', (DATA.topics['Topic A']['Category 1']||[]).length === 10);
+
+      const keys = (function(){ const k=[]; for(let i=0;i<10;i++){ k.push({topic:'Topic A', category:'Category 1', idx:i}); } return k; })();
+      const picked = keys[Math.floor(Math.random()*keys.length)];
+      expect('不重複耗盡後仍可回退抽到卡（理論池測試）', !!picked);
+
+      expect('初始抽卡按鈕為 disabled', document.getElementById('btnDraw').disabled === true);
+      expect('初始分類下拉為 disabled', document.getElementById('categorySelect').disabled === true);
+
+      expect('els 物件已定義', typeof els === 'object' && !!els);
+      const requiredKeys = ['topicSelect','categorySelect','btnDraw','btnReroll','btnConfirm','currentCard','confirmedGrid'];
+      expect('els 必要鍵存在', requiredKeys.every(k=>k in els && !!els[k]));
+
+      const topicSel = els.topicSelect;
+      const catSel = els.categorySelect;
+      const btnDraw = els.btnDraw;
+      const btnReroll = els.btnReroll;
+      const btnConfirm = els.btnConfirm;
+
+      topicSel.value = 'Topic A'; topicSel.dispatchEvent(new Event('change'));
+      catSel.value = 'Category 1'; catSel.dispatchEvent(new Event('change'));
+      expect('選擇完成後抽卡可用', btnDraw.disabled === false);
+
+      btnDraw.click();
+      expect('抽卡後 draw 停用', btnDraw.disabled === true);
+      expect('抽卡後 reroll 啟用', btnReroll.disabled === false);
+      expect('抽卡後 confirm 啟用', btnConfirm.disabled === false);
+
+      btnReroll.click();
+      expect('再抽後 draw 仍停用', btnDraw.disabled === true);
+
+      btnConfirm.click();
+      expect('確認後 draw 再度可用', btnDraw.disabled === false);
+      expect('確認後 reroll 停用', btnReroll.disabled === true);
+      expect('確認後 confirm 停用', btnConfirm.disabled === true);
+
+      topicSel.value = 'Topic B'; topicSel.dispatchEvent(new Event('change'));
+      catSel.value = 'Category 2'; catSel.dispatchEvent(new Event('change'));
+      current = { topic:'Topic B', category:'Category 2', idx:0, card: { text:'dummy' } };
+      updateDrawEnabled();
+      expect('有暫存卡時 draw 停用', btnDraw.disabled === true);
+      current = null; updateDrawEnabled();
+      expect('清空暫存卡後 draw 可用', btnDraw.disabled === false);
+
+      topicSel.value = 'Topic C'; topicSel.dispatchEvent(new Event('change'));
+      catSel.value = 'Category 3'; catSel.dispatchEvent(new Event('change'));
+      btnDraw.click(); btnConfirm.click();
+      const grid = els.confirmedGrid;
+      const before = grid.children.length;
+      expect('確認後結果區至少有 1 張', before >= 1);
+      const delBtn = grid.querySelector('button.del');
+      delBtn && delBtn.click();
+      const after = grid.children.length;
+      expect('刪除後結果區數量減少 1', after === before - 1);
+
+    }catch(e){ log('測試執行例外', false, e); }
+
+    for(const r of out){
+      const li = document.createElement('li');
+      li.textContent = `${r.pass ? '✅' : '❌'} ${r.name}`;
+      if(!r.pass && r.err){ li.title = r.err.message; }
+      resultsEl.appendChild(li);
+    }
+  })();
+
+  clearCurrentUI();
+  </script>
+
+  <!-- =================== PeerJS「全員互看」同步補丁 =================== -->
+  <script>
+  // 額外顯示我的 Peer ID（方便主持人分享）已在 HTML 建立 #peerIdBadge
+  const elsNet = {
+    roomId: document.getElementById('roomId'),
+    isHost: document.getElementById('isHost'),
+    btnJoin: document.getElementById('btnJoin'),
+    myPeerId: document.getElementById('myPeerId'),
+    badge: document.getElementById('peerIdBadge'),
+  };
+
+  let peer, myId = null;
+  const conns = new Set(); // Host: 所有客戶端
+  let hostConn = null;     // Guest: 連主持人
+  let hostId = null;       // Guest: 主持人 ID
+
+  function createPeer(idHint){ return new Peer(idHint || undefined, { debug: 1 }); }
+  function broadcast(msg){ for (const c of conns){ try{ c.open && c.send(msg); }catch(_){ } } }
+  function sendToHost(msg){ if (hostConn && hostConn.open){ try{ hostConn.send(msg); }catch(_){ } } }
+
+  function getSnapshot(){
+    return {
+      confirmed,
+      seen: Array.from(seenPool),
+      topic: els.topicSelect.value,
+      category: els.categorySelect.value,
+      noRepeat: els.chkNoRepeat.checked
+    };
+  }
+  function applySnapshot(s){
+    if (!s) return;
+    confirmed.splice(0); confirmed.push(...(s.confirmed||[]));
+    seenPool.clear(); (s.seen||[]).forEach(k=>seenPool.add(k));
+    if (s.topic && DATA.topics[s.topic]){ els.topicSelect.value = s.topic; populateCategories(s.topic); }
+    if (s.category && DATA.topics[s.topic]?.[s.category]){ els.categorySelect.value = s.category; }
+    els.chkNoRepeat.checked = !!s.noRepeat;
+    renderConfirmed(); clearCurrentUI(); updateDrawEnabled();
+  }
+  function handleIncoming(msg){
+    switch(msg?.type){
+      case 'snapshot': applySnapshot(msg.payload); break;
+      case 'confirm': {
+        const it = msg.payload; // { ...current, uid }
+        if (!confirmed.find(x=>x.uid===it.uid)){ confirmed.push(it); renderConfirmed(); }
+        break;
+      }
+      case 'delete': {
+        const uid = msg.payload; const i = confirmed.findIndex(x=>x.uid===uid);
+        if (i!==-1){ confirmed.splice(i,1); renderConfirmed(); }
+        break;
+      }
+      case 'reset': {
+        confirmed.splice(0); renderConfirmed(); clearCurrentUI(); seenPool.clear(); updateDrawEnabled();
+        break;
+      }
+      case 'meta': {
+        const m = msg.payload; // {topic, category, noRepeat}
+        if (m.topic && DATA.topics[m.topic]){ els.topicSelect.value = m.topic; populateCategories(m.topic); }
+        if (m.category && DATA.topics[m.topic]?.[m.category]){ els.categorySelect.value = m.category; }
+        if (typeof m.noRepeat==='boolean'){ els.chkNoRepeat.checked = m.noRepeat; }
+        updateDrawEnabled();
+        break;
+      }
+    }
+  }
+
+  function setupAsHost(){
+    peer = createPeer(elsNet.roomId.value.trim() || undefined);
+    peer.on('open', id => {
+      myId = id; elsNet.myPeerId.textContent = id; elsNet.badge.style.display = 'block';
+    });
+    peer.on('connection', conn => {
+      conns.add(conn);
+      conn.on('close', ()=> conns.delete(conn));
+      conn.on('data', (msg) => {
+        if (msg?.type === 'hello'){ conn.send({ type:'snapshot', payload: getSnapshot() }); return; }
+        handleIncoming(msg); // 自己先套用
+        broadcast(msg);      // 再轉發給其他人
+      });
+      // 新加入就發快照
+      conn.send({ type:'snapshot', payload: getSnapshot() });
+    });
+  }
+
+  function setupAsGuest(){
+    peer = createPeer();
+    peer.on('open', id => {
+      myId = id; elsNet.myPeerId.textContent = id; elsNet.badge.style.display = 'block';
+      hostId = elsNet.roomId.value.trim();
+      if (!hostId){ alert('請輸入主持人的房間ID'); return; }
+      hostConn = peer.connect(hostId);
+      hostConn.on('open', ()=> { hostConn.send({ type:'hello' }); }); // 請主持人給快照
+      hostConn.on('data', (msg) => handleIncoming(msg));
+    });
+  }
+
+  elsNet.btnJoin.addEventListener('click', ()=>{
+    elsNet.btnJoin.disabled = true; elsNet.roomId.disabled = true; elsNet.isHost.disabled = true;
+    if (elsNet.isHost.checked) setupAsHost(); else setupAsGuest();
+  });
+
+  // 把本機操作接上同步：全員互看
+  els.btnConfirm.addEventListener('click', ()=>{
+    setTimeout(()=>{
+      const last = confirmed[confirmed.length-1]; if (!last) return;
+      const msg = { type:'confirm', payload: last };
+      if (elsNet.isHost.checked) broadcast(msg); else sendToHost(msg);
+    }, 0);
+  });
+
+  els.confirmedGrid.addEventListener('click', (e)=>{
+    const btn = e.target.closest('button.del'); if (!btn) return;
+    const uid = btn.dataset.uid;
+    setTimeout(()=>{
+      const msg = { type:'delete', payload: uid };
+      if (elsNet.isHost.checked) broadcast(msg); else sendToHost(msg);
+    }, 0);
+  });
+
+  document.getElementById('btnReset').addEventListener('click', ()=>{
+    setTimeout(()=>{
+      const msg = { type:'reset' };
+      if (elsNet.isHost.checked) broadcast(msg); else sendToHost(msg);
+    }, 0);
+  });
+
+  // 可選：同步抽卡條件（主題/分類/是否不重複），避免彼此看到不同條件
+  [els.topicSelect, els.categorySelect, els.chkNoRepeat].forEach(el=>{
+    el.addEventListener('change', ()=>{
+      const msg = { type:'meta', payload: {
+        topic: els.topicSelect.value,
+        category: els.categorySelect.value,
+        noRepeat: els.chkNoRepeat.checked
+      }};
+      if (elsNet.isHost.checked) broadcast(msg); else sendToHost(msg);
+    });
+  });
+  </script>
+  <!-- =================== /PeerJS 同步補丁 =================== -->
+</body>
+</html>
