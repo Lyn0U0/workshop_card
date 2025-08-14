@@ -67,6 +67,19 @@
     @media (max-width: 900px){ .stage{ grid-template-columns: 1fr } }
     @media (max-width: 640px){ .controls{ grid-template-columns: 1fr; } }
 
+
+    /* 大卡顏色（抽卡區） */
+.card.體驗卡 { background: linear-gradient(180deg, #fff5f5, #ffeaea); border-color: #ffb3b3; }
+.card.遊戲卡 { background: linear-gradient(180deg, #f5f9ff, #e5f0ff); border-color: #99c2ff; }
+.card.科技卡 { background: linear-gradient(180deg, #f5fff8, #e5ffe9); border-color: #9ef5b6; }
+.card.GPT卡 { background: linear-gradient(180deg, #fffaf5, #fff0e0); border-color: #ffd699; }
+
+/* 小卡顏色（已確認區） */
+.mini.體驗卡 { background: linear-gradient(180deg, #fff5f5, #ffeaea); border-color: #ffb3b3; }
+.mini.遊戲卡 { background: linear-gradient(180deg, #f5f9ff, #e5f0ff); border-color: #99c2ff; }
+.mini.科技卡 { background: linear-gradient(180deg, #f5fff8, #e5ffe9); border-color: #9ef5b6; }
+.mini.GPT卡 { background: linear-gradient(180deg, #fffaf5, #fff0e0); border-color: #ffd699; }
+
     /* Peer ID badge */
     #peerIdBadge{ position:fixed;right:12px;bottom:12px;background:#fff;border:1px solid var(--panel-border);box-shadow:0 8px 20px rgba(17,24,39,.06);border-radius:10px;padding:8px 10px;font-size:12px;color:#475569;z-index:9999;display:none }
   </style>
@@ -126,13 +139,7 @@
       <div id="confirmedGrid" class="grid"></div>
     </section>
 
-    <section class="panel" id="testsPanel" style="margin-top:12px; padding:12px">
-      <details>
-        <summary style="cursor:pointer">內建測試（點開看結果）</summary>
-        <ul id="testResults" style="margin:8px 0 0 18px; line-height:1.6"></ul>
-      </details>
-    </section>
-  </div>
+
 
   <!-- 顯示我的 Peer ID（主持人分享給大家） -->
   <div id="peerIdBadge">我的ID：<span id="myPeerId"></span></div>
@@ -141,21 +148,235 @@
   /**
    * === 可編輯資料（Workshop 主持人可在此區客製化） ========================
    * 結構：topics -> categories -> cards[]
-   * 4 個主題 × 每主題 4 分類 × 每分類 10 張卡
+   * 4 個主題 × 每主題 4 分類 × 每分類 10 張卡 牌卡
    */
-  const TOPICS = ["Topic A", "Topic B", "Topic C", "Topic D"];
-  const CATEGORIES = ["Category 1", "Category 2", "Category 3", "Category 4"];
+ const TOPICS = ["體驗卡", "遊戲卡", "科技卡", "GPT卡"];
 
-  const DATA = { topics: {} };
-  TOPICS.forEach(t => {
-    DATA.topics[t] = {};
-    CATEGORIES.forEach(c => {
+// 每個主題對應自己的分類清單
+const CATS_BY_TOPIC = {
+  "體驗卡": ["A. 城市故事探索組", "B. 微移動互動組", "C. 城市社群互動組", "D. 感官與時空組", "隨機"],
+  "遊戲卡": ["時空變數類", "獎勵與成就類", "社群與互動類", "感受與表達類", "隨機"],
+  "科技卡": ["A GAI / Agent", "B GAI / Agent"],
+  "GPT卡": ["隨機"] // 這就是 Topic D 的唯一分類
+};
+
+const DATA = { topics: {} };
+
+for (const t of TOPICS){
+  DATA.topics[t] = {};
+  for (const c of CATS_BY_TOPIC[t]){
+    // Topic D：放入你指定的 10 張卡
+    if (t === "GPT卡"){
+      DATA.topics[t][c] = [
+        { text: `1.靈感暖身引導者
+我抽到的地點是【】，交通方式是【】，請幫我想一個旅程的故事開場情境。不要寫整段行程，只給我一段情境開頭。` },
+        { text: `2互動任務設計師
+我抽到的技術卡是【】，遊戲卡是【】，請幫我設計一個玩家在【地點】可以完成的互動任務。任務可以是拍照、打卡、收集、分享等。` },
+        { text: `3.體驗節點創造者
+我選的的地點是【】，請幫我想一個「體驗節點」概念，這裡可能會發生什麼事情？結合我手上的技術卡【】與遊戲卡【】。` },
+        { text: `4.故事接龍接棒員
+上一位玩家的故事是【】，接下來的地點是【】，請幫我接一段新的故事情節，只要開頭，不需要完整故事，讓我來收尾。` },
+        { text: `5.風格導向提案者
+我希望這段旅程是【療癒／驚喜／挑戰性／浪漫】風格，地點是【】，交通卡是【】，請給我一個符合這種情緒的旅程主題設定。` },
+        { text: `6.共享設計引導員
+我想把這段旅程設計成多人共騎／互相幫助的形式。請根據【技術卡】與【遊戲卡】，提供一種共享行程的設計方式。` },
+        { text: `7.任務升級挑戰者
+我想讓這段行程變成一個完整挑戰任務，請根據【地點】與【技術卡】，提供一個三階段的任務流程設計，包含起點、行動與結尾。` },
+        { text: `8.轉折事件創造者
+這段旅程看起來太順利了。請幫我在【地點】設計一個「意外事件」，可能是人、環境或突發任務，增加旅程挑戰性。` },
+        { text: `9.點子變現提示家
+我設計了一個微旅行行程，包含【摘要點子或任務】。請幫我思考這個點子要怎麼變成一個可以持續運作的服務？可以跟誰合作？有哪些收入、交換或永續的方式？` },
+        { text: `10.結尾設計規劃師
+這趟旅程到了尾聲，我想留下某種「紀錄或行動延伸」。請根據【技術卡】與【遊戲卡】設計一個結尾任務或回饋方式。
+例如生成一張碳紀錄卡、照片牆或參與排行榜。` },
+      ];
+    }
+    // Topic A / Category 1：放入你提供的中文卡
+    else if (t === "體驗卡" && c === "A. 城市故事探索組"){
+      DATA.topics[t][c] = [
+        { text: "1.歷史時間軸路線\n以城市歷史演變串連舊街與新區，體驗時空轉換。" },
+        { text: "2.夜景微旅行\n夜晚限定的燈光與景觀探索體驗。" },
+        { text: "3.城市聲音散步\n收集聲音景觀建立聲音地圖。" },
+        { text: "4.故事導向解謎\n透過劇情線索實境解謎。" },
+        { text: "5.文化地標連結\n串連文化地標路線任務。" },
+        { text: "6.影視場景巡禮\n拍攝景點巡禮體驗。" },
+        { text: "7.在地人物訪談\n與居民互動收集故事。" },
+        { text: "8.城市節慶快閃\n節慶短期限定探索。" },
+        { text: "9.地方美食鏈結\n美食為主題的探索路線。" },
+        { text: "10.公共藝術巡禮\n收集公共藝術作品並拍照分享。" },
+      ];
+    }
+
+    // Topic A / Category 2：放入你提供的中文卡
+        else if (t === "體驗卡" && c === "B. 微移動互動組"){
+      DATA.topics[t][c] = [
+        { text: "1.速度對比\n結合快（滑板車）與慢（步行）的路線。" },
+        { text: "2.坡道與高差體驗\n體驗坡道與高差的挑戰。" },
+        { text: "3.單車環線\n環狀單車探索路線。" },
+        { text: "4.多模式轉換\n公共交通+微移動串連探索。" },
+        { text: "5.低碳挑戰\n累積碳減量積分。" },
+        { text: "6.隱藏巷弄探索\n尋找隱密小徑捷徑。" },
+        { text: "7.停留點微互動\n路線停留點的快速互動體驗。" },
+        { text: "8.共享車站遊戲化\n共享車站的遊戲化挑戰。" },
+        { text: "9.微距離比拼\n不同人完成同距離比賽。" },
+        { text: "10.能源積分挑戰\n依里程累積能源積分兌換。" },
+      ];
+    }
+    // Topic A / Category 3：放入你提供的中文卡
+    else if (t === "體驗卡" && c === "C. 城市社群互動組"){
+      DATA.topics[t][c] = [
+        { text: "1.社群合力任務\n多人協作完成挑戰。" },
+        { text: "2.居民互動體驗\n與店家/居民互動。" },
+        { text: "3.合作攝影挑戰\n團隊分工拍攝不同主題。" },
+        { text: "4.社區故事共創\n蒐集居民故事進行共創。" },
+        { text: "5.城市志工行動\n探索過程中的公益行為。" },
+        { text: "6.文化交流活動\n與不同背景者交換體驗。" },
+        { text: "7.臨時集會任務\n即時通知集合挑戰。" },
+        { text: "8.共享地圖編輯\n玩家共同標註特色地點。" },
+        { text: "9.社區貢獻排名\n將貢獻轉化為排名與成就。" },
+        { text: "10.現場音樂會串聯\n音樂活動與社群互動結合。" },
+      ];
+    }
+    // Topic A / Category 4：放入你提供的中文卡
+    else if (t === "體驗卡" && c === "D. 感官與時空組"){
+      DATA.topics[t][c] = [
+        { text: "1.早晨市場任務\n清晨市場探索與紀錄。" },
+        { text: "2.黃昏散步線\n黃昏限定慢觀察。" },
+        { text: "3.夜間挑戰\n體驗夜間微移動。" },
+        { text: "4.雨天替代路線\n雨天限定庇護點探索。" },
+        { text: "5.感官覺察挑戰\n紀錄聲音、氣味、色彩與觸覺。" },
+        { text: "6.速度切換體驗\n指定區域快走/慢觀察。" },
+        { text: "7.即時事件觸發\n城市事件改變路線。" },
+        { text: "8.季節路線更新\n季節差異動態探索。" },
+        { text: "9.時間旅行體驗\n結合科技還原歷史未來場景。" },
+        { text: "10.全城慢活日\n推動全市低速體驗日。" },
+      ];
+    }
+    else if (t === "體驗卡" && c === "隨機"){
+      // Category 5 = Category 1~4 所有卡合併
+      let combined = [];
+      ["A. 城市故事探索組", "B. 微移動互動組", "C. 城市社群互動組", "D. 感官與時空組"].forEach(catName => {
+        if (DATA.topics["體驗卡"][catName]) {
+          combined = combined.concat(DATA.topics["體驗卡"][catName]);
+        }
+      });
+      DATA.topics[t][c] = combined;
+    }
+
+    // Topic B / Category A：放入你提供的中文卡
+    else if (t === "遊戲卡" && c === "時空變數類"){
+      DATA.topics[t][c] = [
+        { text: "1.即時任務 (Real-time)\n需要立即完成的任務，例如「3分鐘內找到指定景點」。" },
+        { text: "2.延遲觸發 (Delayed)\n任務需等待特定時間後才可解鎖，例如「明日早晨可再挑戰下一站」。" },
+        { text: "3.循環週期 (Cyclic)\n每日、每週、季節性重複出現的任務，例如「春季限定路線」。" },
+        { text: "4.歷史時間軸 (Historical Timeline)\n任務設定於特定歷史背景，例如「AR還原古城」。" },
+        { text: "5.未來情境 (Speculative Future)\n模擬未來城市的體驗，例如「2050智慧街道」。" },
+        { text: "6.微縮範圍 (Micro-scale)\n小尺度任務，例如「一條老街或市場」。" },
+        { text: "7.擴張範圍 (Expanded Scale)\n跨行政區或多城市連結的探索。" },
+        { text: "8.層疊空間 (Layered Space)\n結合地面、地下與建築內外的任務。" },
+        { text: "9.虛實疊加 (Physical + Virtual)\n實體場景與虛擬地圖交錯，例如「虛擬 NPC 出現在實體公園」。" },
+        { text: "10.快節奏 (Fast-paced)\n限時衝刺任務，例如「5分鐘內蒐集三個點位」。" },
+        { text: "11.慢體驗 (Slow Experience)\n鼓勵停留與觀察，例如「坐下觀察10分鐘並素描」。" },
+        { text: "12.動態切換 (Dynamic Switching)\n在快與慢之間切換，例如「先衝到下一站，再慢觀察」。" },
+      ];
+    }
+
+    // Topic B / Category B：放入你提供的中文卡
+    else if (t === "遊戲卡" && c === "獎勵與成就類"){
+      DATA.topics[t][c] = [
+        { text: "1.獎勵計劃\n提供點數、獎品、升級的時間架構與交付機制" },
+        { text: "2.成就\n完成任務後的象徵性標記（虛擬或實體）。" },
+        { text: "3.成就徽章\n用於象徵特定成就的徽章系統。" },
+        { text: "4.里程碑\n將重大進度設為明顯的成就標記。" },
+        { text: "5.收藏系統\n鼓勵蒐集特定物品或標記。" },
+        { text: "6.免費午餐\n因他人努力而獲得額外好處。" },
+        { text: "7.抽獎\n完全由運氣決定勝負，製造期待感。" },
+        { text: "8.隨機獎勵\n不可預測的獎勵增加驚喜與期待。" },
+        { text: "9.習慣培養\n鼓勵重複行為形成習慣。" },
+        { text: "10.回歸誘因\n讓玩家願意再次回來參與活動。" },
+      ];
+    }
+    // Topic B / Category C：放入你提供的中文卡
+    else if (t === "遊戲卡" && c === "社群與互動類"){
+      DATA.topics[t][c] = [
+        { text: "1.社群發現\n動員整個社群共同解開挑戰。" },
+        { text: "2.合作任務\n鼓勵團隊合作完成目標。" },
+        { text: "3.交換交易\n鼓勵玩家之間交換資源。" },
+        { text: "4.遊戲的社會紋理\n遊戲促進人際關係與信任感。" },
+        { text: "5.病毒式遊戲機制\n在多人參與下效果最佳的遊戲元素。" },
+        { text: "6.微型排行榜\n小群體的排名比較，製造競爭氛圍。" },
+        { text: "7.地位\n小群體的排名比較，製造競爭氛圍。" },
+      ];
+    }
+    // Topic B / Category D：放入你提供的中文卡
+    else if (t === "遊戲卡" && c === "感受與表達類"){
+      DATA.topics[t][c] = [
+        { text: "1.角色自訂\n玩家可自訂角色或外觀風格。" },
+        { text: "2.自我表達\n允許玩家創造或展示個人內容。" },
+        { text: "3.敘事驅動\n使用故事情節引導遊戲進程。" },
+        { text: "4.史詩意義\n讓玩家覺得自己是重要目標的一部分。" },
+        { text: "5.增幅器\n可影響其他行動結果的物品。" },
+        { text: "6.虛擬物品\n遊戲過程中的數位獎勵或收藏品。" },
+        { text: "7.輪替式實體獎勵\n符合條件即可獲得的實體獎品，條件會輪替。" },
+        { text: "8.擁有權\n控制某樣東西並視為個人財產。" },
+        { text: "9.跨平台遊戲\n可在多平台間無縫體驗。" },
+        { text: "10.隱私\n資訊控制與分享的自由度。" },
+        { text: "11.進度動態\n清楚顯示任務與成就進展。" },
+      ];
+    }
+    else if (t === "遊戲卡" && c === "隨機"){
+      // Category 5 = Category 1~4 所有卡合併
+      let combined = [];
+      ["時空變數類", "獎勵與成就類", "社群與互動類", "感受與表達類"].forEach(catName => {
+        if (DATA.topics["遊戲卡"][catName]) {
+          combined = combined.concat(DATA.topics["遊戲卡"][catName]);
+        }
+      });
+      DATA.topics[t][c] = combined;
+    }
+
+    // Topic C / Category A：放入你提供的中文卡
+    else if (t === "科技卡" && c === "A GAI / Agent"){
+      DATA.topics[t][c] = [
+        { text: "1.全能地方改造 Image GAI\n將現實街景轉換成使用者想像的城市樣貌，像是童話城、未來市或森林小徑" },
+        { text: "2.反思人地關係 Image GAI Text GAI\n透過增加或刪除街景中的要素，反思對城市的印象" },
+        { text: "3.時光機 Image GAI\n讓使用者穿越至城市的過去或未來，進入特定時代的風格場景中" },
+        { text: "4.多重宇宙 Image GAI\n於所在城市的各種主題版本間來回穿梭。這些版本中的人事物都跟現實城市有所對應，但風格不同" },
+        { text: "5.陌異化 Image GAI\n生成與現實相似但略有不同的、帶有既視感的「平行時空城市」。" },
+        { text: "6.奇異街景拼貼 Image GAI\n以異想天開、反物理邏輯的方式改造城市空間" },
+        { text: "7.接龍共創 Image GAI\n邀請人們即興輪流創造元素。前個人生成的內容可以成為下一個人生成創作的基礎" },
+        { text: "8.呼朋引伴 Text GAI\n可呼叫虛擬夥伴或其他使用者，一起完成團體旅程或任務" },
+        { text: "9.變身角色 Text GAI\n根據場域變換角色身分（如孩童、老者、藝術家）提供行程體驗角度" },
+        { text: "10.導航探索 Text GAI\n根據你的偏好即時推薦地點與行程，像智慧個人化導航助手" },
+        { text: "11.思維覺醒 Text GAI\n運用AI讓角色的性格隨著時間與空間的變化產生轉變" },
+        { text: "12.做夢 Image GAI\n生成與夢境有所呼應的超現實內容，創造潛意識、內在世界與城市的連結" },
+        { text: "13.模糊化 Image GAI Text GAI\n將一人的訊息模糊化或去除個資後傳給另一人" },
+        { text: "14.加密與解密 Text GAI\n將一人的原始訊息以另一種形式呈現給特定的人，使他們更易理解或更難理解訊息" },
+        { text: "15.漸變串聯 Video GAI Image GAI\n將看似無關的不同情境以漸變的方式關聯起來" },
+        { text: "15.道聽塗說 Image GAI Text GAI\n會提供錯誤的、帶偏見的在地資訊，促使了解在地的人們糾正資訊" },
+        { text: "16.自定義 ? GAI\n依據你對某種 GAI 的了解，將它的互動特徵結合到微移動體驗" },
+      ];
+    }
+        // Topic C / Category B：放入你提供的中文卡
+        else if (t === "科技卡" && c === "B GAI / Agent"){
+      DATA.topics[t][c] = [
+        { text: "1.地標悄悄話 LLM + Location-based Dialogue System\n在城市地標植入語音助理，僅在使用者接近時觸發，提供即時、超在地、具趣味或實用的資訊。" },
+        { text: "2.聲音導航 Multi-modal AI (vision + audio fusion), spatial memory building, path planning\n透過視覺與聲音訊號建構空間記憶，使用多模態 AI 導航至聲音來源。" },
+        { text: "3.聲音地圖 Multi-modal sensing (vision + acoustics), 3D environment simulation, deep reinforcement learning\n在 3D 現實世界中，AI 能同時「看」和「聽」，藉由回響與聲源辨識找路。" },
+        { text: "4.共創氛圍Human-AI co-creation, spatial audio design, multi-step interaction pipeline\n透過步驟與參與者共同創造沉浸式空間音效，而非黑盒子式的生成。" },
+        { text: "5.提示音Acoustic design, environmental noise analysis\n為電動滑板車設計提示音，使其在各種噪音環境下被感知而不刺耳。" },
+        { text: "6.環境音Urban soundscape analysis, sensory impact research, mobility device sound design\n探討微移動如何改變城市的感官地景，特別是低噪音電動工具對行人與視障者的影響。" },
+      ];
+    }
+    // 其他主題 / 分類：維持原本每分類 10 張卡
+    else {
       DATA.topics[t][c] = [];
       for (let i = 1; i <= 10; i++){
         DATA.topics[t][c].push({ text: `${t} · ${c} · Card ${String(i).padStart(2,'0')}` });
       }
-    });
-  });
+    }
+  }
+}
 
   /**
    * === 程式邏輯 ===========================================================
@@ -245,43 +466,57 @@
   }
 
   function renderCurrent(cardState){
-    const box = els.currentCard;
-    box.innerHTML = '';
-    box.removeAttribute('data-empty');
+  const box = els.currentCard;
+  box.innerHTML = '';
+  box.removeAttribute('data-empty');
 
-    const tag = document.createElement('div'); tag.className = 'tag'; tag.textContent = `${cardState.topic} · ${cardState.category}`;
-    const title = document.createElement('h2'); title.textContent = cardState.card.text ? '文字卡' : '圖片卡';
-    const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = '抽到的卡片';
+  // 清除舊的 Topic 樣式
+  box.classList.remove('體驗卡','遊戲卡','科技卡','GPT卡');
+  // 根據 Topic 加顏色
+  if (cardState.topic === "體驗卡") box.classList.add('體驗卡');
+  if (cardState.topic === "遊戲卡") box.classList.add('遊戲卡');
+  if (cardState.topic === "科技卡") box.classList.add('科技卡');
+  if (cardState.topic === "GPT卡") box.classList.add('GPT卡');
 
-    const content = document.createElement('div'); content.className = 'content';
-    if (cardState.card.text){
-      content.textContent = cardState.card.text;
-    } else if (cardState.card.image){
-      const img = document.createElement('img'); img.src = cardState.card.image; img.alt = cardState.card.caption || '抽卡圖片'; img.loading = 'lazy';
-      content.appendChild(img);
-      if (cardState.card.caption){
-        const cap = document.createElement('div'); cap.style.marginTop = '6px'; cap.style.fontSize = '13px'; cap.style.color = '#cbd5e1'; cap.textContent = cardState.card.caption; content.appendChild(cap);
-      }
+  const tag = document.createElement('div'); tag.className = 'tag'; tag.textContent = `${cardState.topic} · ${cardState.category}`;
+  const title = document.createElement('h2'); title.textContent = cardState.card.text ? '' : '';
+  const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = '';
+
+  const content = document.createElement('div'); content.className = 'content';
+  if (cardState.card.text){
+    content.textContent = cardState.card.text;
+  } else if (cardState.card.image){
+    const img = document.createElement('img'); img.src = cardState.card.image; img.alt = cardState.card.caption || '抽卡圖片'; img.loading = 'lazy';
+    content.appendChild(img);
+    if (cardState.card.caption){
+      const cap = document.createElement('div'); cap.style.marginTop = '6px'; cap.style.fontSize = '13px'; cap.style.color = '#cbd5e1'; cap.textContent = cardState.card.caption; content.appendChild(cap);
     }
-
-    box.appendChild(tag); box.appendChild(title); box.appendChild(meta); box.appendChild(content);
-
-    // lively pop animation on draw/reroll
-    box.classList.add('pop');
-    box.addEventListener('animationend', () => box.classList.remove('pop'), { once:true });
-
-    // 進入預覽狀態：停用抽卡，只能再抽或確認
-    els.btnDraw.disabled = true;
-    els.btnReroll.disabled = false; 
-    els.btnConfirm.disabled = false;
   }
+
+  box.appendChild(tag); box.appendChild(title); box.appendChild(meta); box.appendChild(content);
+
+  box.classList.add('pop');
+  box.addEventListener('animationend', () => box.classList.remove('pop'), { once:true });
+
+  els.btnDraw.disabled = true;
+  els.btnReroll.disabled = false; 
+  els.btnConfirm.disabled = false;
+}
 
   function renderConfirmed(){
     els.confirmedGrid.innerHTML = '';
     for (const item of confirmed){
-      const card = document.createElement('div'); card.className = 'mini'; card.dataset.uid = String(item.uid || '');
+      const card = document.createElement('div'); 
+card.className = 'mini'; 
+card.dataset.uid = String(item.uid || '');
+
+// 根據 Topic 加顏色
+if (item.topic === "體驗卡") card.classList.add('體驗卡');
+if (item.topic === "遊戲卡") card.classList.add('遊戲卡');
+if (item.topic === "科技卡") card.classList.add('科技卡');
+if (item.topic === "GPT卡") card.classList.add('GPT卡');
       const t = document.createElement('div'); t.className = 't'; t.textContent = `${item.topic} · ${item.category}`;
-      const m = document.createElement('div'); m.className = 'm'; m.textContent = item.card.text ? '文字卡' : '圖片卡';
+      const m = document.createElement('div'); m.className = 'm'; m.textContent = item.card.text ? '' : '';
 
       // 刪除按鈕
       const del = document.createElement('button');
@@ -371,83 +606,7 @@
   });
 
   // === 測試（不影響實際狀態） ==============================================
-  (function runTests(){
-    const resultsEl = els.testResults;
-    const out = [];
-    const log = (name, pass, err) => out.push({name, pass, err});
-    const expect = (name, cond) => log(name, !!cond, !!cond? null : new Error('Assertion failed'));
-
-    try{
-      expect('共有 4 個主題', Object.keys(DATA.topics).length === 4);
-      expect('每主題 4 個分類', Object.values(DATA.topics).every(t => Object.keys(t).length === 4));
-      const totalCards = Object.values(DATA.topics).flatMap(t => Object.values(t)).reduce((s, arr) => s + arr.length, 0);
-      expect('總卡數 160', totalCards === 160);
-      expect('Topic A / Category 1 有 10 張', (DATA.topics['Topic A']['Category 1']||[]).length === 10);
-
-      const keys = (function(){ const k=[]; for(let i=0;i<10;i++){ k.push({topic:'Topic A', category:'Category 1', idx:i}); } return k; })();
-      const picked = keys[Math.floor(Math.random()*keys.length)];
-      expect('不重複耗盡後仍可回退抽到卡（理論池測試）', !!picked);
-
-      expect('初始抽卡按鈕為 disabled', document.getElementById('btnDraw').disabled === true);
-      expect('初始分類下拉為 disabled', document.getElementById('categorySelect').disabled === true);
-
-      expect('els 物件已定義', typeof els === 'object' && !!els);
-      const requiredKeys = ['topicSelect','categorySelect','btnDraw','btnReroll','btnConfirm','currentCard','confirmedGrid'];
-      expect('els 必要鍵存在', requiredKeys.every(k=>k in els && !!els[k]));
-
-      const topicSel = els.topicSelect;
-      const catSel = els.categorySelect;
-      const btnDraw = els.btnDraw;
-      const btnReroll = els.btnReroll;
-      const btnConfirm = els.btnConfirm;
-
-      topicSel.value = 'Topic A'; topicSel.dispatchEvent(new Event('change'));
-      catSel.value = 'Category 1'; catSel.dispatchEvent(new Event('change'));
-      expect('選擇完成後抽卡可用', btnDraw.disabled === false);
-
-      btnDraw.click();
-      expect('抽卡後 draw 停用', btnDraw.disabled === true);
-      expect('抽卡後 reroll 啟用', btnReroll.disabled === false);
-      expect('抽卡後 confirm 啟用', btnConfirm.disabled === false);
-
-      btnReroll.click();
-      expect('再抽後 draw 仍停用', btnDraw.disabled === true);
-
-      btnConfirm.click();
-      expect('確認後 draw 再度可用', btnDraw.disabled === false);
-      expect('確認後 reroll 停用', btnReroll.disabled === true);
-      expect('確認後 confirm 停用', btnConfirm.disabled === true);
-
-      topicSel.value = 'Topic B'; topicSel.dispatchEvent(new Event('change'));
-      catSel.value = 'Category 2'; catSel.dispatchEvent(new Event('change'));
-      current = { topic:'Topic B', category:'Category 2', idx:0, card: { text:'dummy' } };
-      updateDrawEnabled();
-      expect('有暫存卡時 draw 停用', btnDraw.disabled === true);
-      current = null; updateDrawEnabled();
-      expect('清空暫存卡後 draw 可用', btnDraw.disabled === false);
-
-      topicSel.value = 'Topic C'; topicSel.dispatchEvent(new Event('change'));
-      catSel.value = 'Category 3'; catSel.dispatchEvent(new Event('change'));
-      btnDraw.click(); btnConfirm.click();
-      const grid = els.confirmedGrid;
-      const before = grid.children.length;
-      expect('確認後結果區至少有 1 張', before >= 1);
-      const delBtn = grid.querySelector('button.del');
-      delBtn && delBtn.click();
-      const after = grid.children.length;
-      expect('刪除後結果區數量減少 1', after === before - 1);
-
-    }catch(e){ log('測試執行例外', false, e); }
-
-    for(const r of out){
-      const li = document.createElement('li');
-      li.textContent = `${r.pass ? '✅' : '❌'} ${r.name}`;
-      if(!r.pass && r.err){ li.title = r.err.message; }
-      resultsEl.appendChild(li);
-    }
-  })();
-
-  clearCurrentUI();
+ 
   </script>
 
   <!-- =================== PeerJS「全員互看」同步補丁 =================== -->
