@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>抽卡互動網站（PeerJS 全員互看版）</title>
+  <title>抽卡互動網站</title>
   <!-- PeerJS：使用官方 Cloud PeerServer，免後端 -->
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <style>
@@ -142,7 +142,13 @@
 
 
   <!-- 顯示我的 Peer ID（主持人分享給大家） -->
-  <div id="peerIdBadge">我的ID：<span id="myPeerId"></span></div>
+  <div id="peerIdBadge">
+    <div>我的ID：<span id="myPeerId"></span></div>
+    <div style="margin-top:6px;font-size:11px;color:#475569">
+      <b>成員：</b>
+      <ul id="peerList" style="padding-left:18px;margin:4px 0 0 0;max-height:120px;overflow:auto;"></ul>
+    </div>
+  </div>
 
   <script>
   /**
@@ -618,6 +624,7 @@ if (item.topic === "GPT卡") card.classList.add('GPT卡');
     btnJoin: document.getElementById('btnJoin'),
     myPeerId: document.getElementById('myPeerId'),
     badge: document.getElementById('peerIdBadge'),
+    peerList: document.getElementById('peerList'),
   };
 
   let peer, myId = null;
@@ -674,15 +681,37 @@ if (item.topic === "GPT卡") card.classList.add('GPT卡');
       }
     }
   }
+  // 記錄目前已連線成員（含主持人自己）
+const memberIds = new Set();
+
+function updatePeerList(){
+  elsNet.peerList.innerHTML = '';
+  memberIds.forEach(id => {
+    const li = document.createElement('li');
+    li.textContent = id;
+    elsNet.peerList.appendChild(li);
+  });
+}
 
   function setupAsHost(){
     peer = createPeer(elsNet.roomId.value.trim() || undefined);
     peer.on('open', id => {
-      myId = id; elsNet.myPeerId.textContent = id; elsNet.badge.style.display = 'block';
-    });
-    peer.on('connection', conn => {
-      conns.add(conn);
-      conn.on('close', ()=> conns.delete(conn));
+  myId = id;
+  memberIds.add(id); // 自己也加進成員清單
+  updatePeerList();
+  elsNet.myPeerId.textContent = id;
+  elsNet.badge.style.display = 'block';
+});
+peer.on('connection', conn => {
+  conns.add(conn);
+  memberIds.add(conn.peer); // 記錄新成員
+  updatePeerList();
+
+  conn.on('close', ()=> {
+    conns.delete(conn);
+    memberIds.delete(conn.peer); // 移除斷線成員
+    updatePeerList();
+  });
       conn.on('data', (msg) => {
         if (msg?.type === 'hello'){ conn.send({ type:'snapshot', payload: getSnapshot() }); return; }
         handleIncoming(msg); // 自己先套用
