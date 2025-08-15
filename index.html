@@ -378,8 +378,8 @@ for (const t of TOPICS){
       // Category 5 = Category 1~4 所有卡合併
       let combined = [];
       ["GAI 影像與遊玩", "GAI 聲音地景"].forEach(catName => {
-        if (DATA.topics["體驗卡"][catName]) {
-          combined = combined.concat(DATA.topics["體驗卡"][catName]);
+        if (DATA.topics["科技卡"][catName]) {
+          combined = combined.concat(DATA.topics["科技卡"][catName]);
         }
       });
       DATA.topics[t][c] = combined;
@@ -790,3 +790,4 @@ peer.on('connection', conn => {
 </body>
 
 </html>
+
