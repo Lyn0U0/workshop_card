@@ -162,7 +162,7 @@
 const CATS_BY_TOPIC = {
   "體驗卡": ["A. 城市故事探索組", "B. 微移動互動組", "C. 城市社群互動組", "D. 感官與時空組", "隨機"],
   "遊戲卡": ["時空變數類", "獎勵與成就類", "社群與互動類", "感受與表達類", "隨機"],
-  "科技卡": ["A GAI / Agent", "B GAI / Agent"],
+  "科技卡": ["GAI 影像與遊玩", "GAI 聲音地景", "隨機"],
   "GPT卡": ["隨機"] // 這就是 Topic D 的唯一分類
 };
 
@@ -342,7 +342,7 @@ for (const t of TOPICS){
     }
 
     // Topic C / Category A：放入你提供的中文卡
-    else if (t === "科技卡" && c === "A GAI / Agent"){
+    else if (t === "科技卡" && c === "GAI 影像與遊玩"){
       DATA.topics[t][c] = [
         { text: "1.全能地方改造 Image GAI\n將現實街景轉換成使用者想像的城市樣貌，像是童話城、未來市或森林小徑" },
         { text: "2.反思人地關係 Image GAI Text GAI\n透過增加或刪除街景中的要素，反思對城市的印象" },
@@ -364,7 +364,7 @@ for (const t of TOPICS){
       ];
     }
         // Topic C / Category B：放入你提供的中文卡
-        else if (t === "科技卡" && c === "B GAI / Agent"){
+        else if (t === "科技卡" && c === "GAI 聲音地景"){
       DATA.topics[t][c] = [
         { text: "1.地標悄悄話 LLM + Location-based Dialogue System\n在城市地標植入語音助理，僅在使用者接近時觸發，提供即時、超在地、具趣味或實用的資訊。" },
         { text: "2.聲音導航 Multi-modal AI (vision + audio fusion), spatial memory building, path planning\n透過視覺與聲音訊號建構空間記憶，使用多模態 AI 導航至聲音來源。" },
@@ -373,6 +373,16 @@ for (const t of TOPICS){
         { text: "5.提示音Acoustic design, environmental noise analysis\n為電動滑板車設計提示音，使其在各種噪音環境下被感知而不刺耳。" },
         { text: "6.環境音Urban soundscape analysis, sensory impact research, mobility device sound design\n探討微移動如何改變城市的感官地景，特別是低噪音電動工具對行人與視障者的影響。" },
       ];
+    }
+    else if (t === "科技卡" && c === "隨機"){
+      // Category 5 = Category 1~4 所有卡合併
+      let combined = [];
+      ["GAI 影像與遊玩", "GAI 聲音地景"].forEach(catName => {
+        if (DATA.topics["體驗卡"][catName]) {
+          combined = combined.concat(DATA.topics["體驗卡"][catName]);
+        }
+      });
+      DATA.topics[t][c] = combined;
     }
     // 其他主題 / 分類：維持原本每分類 10 張卡
     else {
@@ -778,4 +788,5 @@ peer.on('connection', conn => {
   </script>
   <!-- =================== /PeerJS 同步補丁 =================== -->
 </body>
+
 </html>
